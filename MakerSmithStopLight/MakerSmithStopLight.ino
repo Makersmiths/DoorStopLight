@@ -30,17 +30,11 @@ void setup() {
   pinMode(switchPin, INPUT_PULLUP);
   pinMode(relayPin, OUTPUT);
   digitalWrite(relayPin, LOW);
-  
-  Serial.begin(9600);
 
   // Open serial communications and wait for port to open:
   Serial.begin(9600);
   pinMode(SDCARD_CS,OUTPUT);
   digitalWrite(SDCARD_CS,HIGH);//Deselect the SD card
-     //while (!Serial) 
-     //{
-       //; // wait for serial port to connect. Needed for Leonardo only
-     //}
 
   // start the Ethernet connection:
   if (Ethernet.begin(mac) == 0) 
@@ -185,20 +179,58 @@ void UpdateTwitter(int state)
     }
 
     
-    //StepOne.c_str ()
-    String msg = status + response;
-    if (!client.connect(LIB_DOMAIN, 80)) {
-    Serial.println("connection failed");
-    return;
-  }
-    client.println("POST http://" LIB_DOMAIN "/update HTTP/1.0");
-    client.print("Content-Length: ");
-    client.println(strlen(msg.c_str ())+strlen(token)+14);
-    client.println();
-    client.print("token=");
-    client.print(token);
-    client.print("&status=");
-    client.println(msg);
-    client.stop();
+    String msg = "/update?token=4832247938-64qLNQms41xEyYrtYFMwINi7hYn7dU4kHL06UOG&status=" + status + response;
+    msg.replace(" ", "%20");
+    Serial.println(msg.c_str());
     
+  err = http.get("arduino-tweet.appspot.com", msg.c_str());
+  if (err == 0)
+  {
+    err = http.responseStatusCode();
+    if (err >= 0)
+    {
+      err = http.skipResponseHeaders();
+      if (err >= 0)
+      {
+        int bodyLen = http.contentLength();
+        unsigned long timeoutStart = millis();
+        char c;
+        while ( (http.connected() || http.available()) &&
+               ((millis() - timeoutStart) < kNetworkTimeout) )
+        {
+            if (http.available())
+            {
+                c = http.read();
+                response += c;
+                bodyLen--;
+                timeoutStart = millis();
+            }
+            else
+            {
+                delay(kNetworkDelay);
+            }
+        }
+      }
+      else
+      {
+        Serial.print("Failed to skip response headers: ");
+        Serial.println(err);
+      }
+    }
+    else
+    {    
+      Serial.print("Getting response failed: ");
+      Serial.println(err);
+    }
+  }
+  else
+  {
+    Serial.print("Connect failed: ");
+    Serial.println(err);
+    response = random(100000);
+  }
+  Serial.println(response);
+  Serial.println("End request");
+  
+  http.stop();
 }
